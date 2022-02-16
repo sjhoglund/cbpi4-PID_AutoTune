@@ -17,6 +17,14 @@ from typing import KeysView
 from voluptuous.schema_builder import message
 from cbpi.api.dataclasses import NotificationAction, NotificationType
 
+##### Actor requirements #####
+import board
+from adafruit_motorkit import MotorKit
+###############################
+
+# create a default object, no changes to I2C address or frequency
+kit = MotorKit(i2c=board.I2C())
+
 @parameters([Property.Number(label = "Output_Step", configurable = True, default_value = 100, description="Default: 100. Sets the output when stepping up/down."),
              Property.Number(label = "Max_Output", configurable = True, default_value = 100, description="Default: 100. Sets the max power output."),
              Property.Number(label = "lockback_seconds", configurable = True, default_value = 30, description="Default: 30. How far back to look for min/max temps.")])
@@ -36,6 +44,8 @@ class PIDAutotune(CBPiKettleLogic):
         if self.finished == False:
             self.cbpi.notify('PID AutoTune', 'Process stopped Manually. Please run Autotune again.', NotificationType.ERROR)
         await self.actor_off(self.heater)
+        kit.motor2.throttle = 0
+        kit.motor4.throttle = 0
         self.running = False
 
     async def run(self):
@@ -59,6 +69,8 @@ class PIDAutotune(CBPiKettleLogic):
         if setpoint < current_value:
             self.cbpi.notify('PID AutoTune', 'Your target temp is above the current temp. Choose a higher setpoint or wait until temp temp is below target temp and restart AutoTune', NotificationType.ERROR)
             await self.actor_off(self.heater)
+            kit.motor2.throttle = 0
+            kit.motor4.throttle = 0
             await self.stop()
             pass
 
@@ -76,6 +88,8 @@ class PIDAutotune(CBPiKettleLogic):
             self.cbpi.notify('PID autoTune', 'AutoTune Error: {}'.format(str(e)),NotificationType.ERROR)
             atune.log(str(e))
             await self.autoOff()
+            kit.motor2.throttle = 0
+            kit.motor4.throttle = 0
         atune.log("AutoTune will now begin")
 
         try:
@@ -84,6 +98,8 @@ class PIDAutotune(CBPiKettleLogic):
                 heat_percent = atune.output
                 if heat_percent != heat_percent_old:
                     await self.actor_set_power(self.heater,heat_percent)
+                    kit.motor2.throttle = heat_percent
+                    kit.motor4.throttle = heat_percent
                     heat_percent_old = heat_percent
                 await asyncio.sleep(sampleTime)
 
@@ -108,10 +124,14 @@ class PIDAutotune(CBPiKettleLogic):
         except Exception as e:
             logging.error("PIDAutoTune Error {}".format(e))
             await self.actor_off(self.heater)
+            kit.motor2.throttle = 0
+            kit.motor4.throttle = 0
             await self.stop()
             pass
         finally:
             await self.actor_off(self.heater)
+            kit.motor2.throttle = 0
+            kit.motor4.throttle = 0
             await self.stop()
             pass
 
