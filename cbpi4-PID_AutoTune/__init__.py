@@ -98,8 +98,8 @@ class PIDAutotune(CBPiKettleLogic):
                 heat_percent = atune.output
                 if heat_percent != heat_percent_old:
                     await self.actor_set_power(self.heater,heat_percent)
-                    kit.motor2.throttle = heat_percent
-                    kit.motor4.throttle = heat_percent
+                    kit.motor2.throttle = heat_percent / 100
+                    kit.motor4.throttle = heat_percent / 100
                     heat_percent_old = heat_percent
                 await asyncio.sleep(sampleTime)
 
